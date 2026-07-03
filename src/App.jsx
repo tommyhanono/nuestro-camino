@@ -2,7 +2,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import Experience from './Experience.jsx'
 import { STOPS } from './data.js'
-import { toggleMusic } from './audio.js'
+import { musicPlay, musicPause, musicSetMuted, musicRestart } from './audio.js'
 
 const N = STOPS.length
 
@@ -24,7 +24,7 @@ export default function App() {
   const [paused, setPaused] = useState(false)
   const [ended, setEnded] = useState(false)
   const [showEnd, setShowEnd] = useState(false)
-  const [muted, setMuted] = useState(true)
+  const [muted, setMuted] = useState(false) // la canción suena por defecto
 
   const expRef = useRef(null)
   const progRef = useRef(null)
@@ -51,20 +51,24 @@ export default function App() {
     if (!loaded) return
     setStarted(true)
     setActive(0)
+    // el tap es un gesto válido: arranca la canción sincronizada con el viaje
+    musicPlay()
+    musicSetMuted(muted)
   }
   const togglePause = () => {
     if (!expRef.current) return
-    if (paused) { expRef.current.resume(); setPaused(false) }
-    else { expRef.current.pause(); setPaused(true) }
+    if (paused) { expRef.current.resume(); musicPlay(); setPaused(false) }
+    else { expRef.current.pause(); musicPause(); setPaused(true) }
   }
   const doRestart = () => {
     setActive(0); setEnded(false); setShowEnd(false); setPaused(false)
     expRef.current && expRef.current.restart()
+    musicRestart(); musicPlay(); musicSetMuted(muted)
   }
   const toggleMute = () => {
     const m = !muted
     setMuted(m)
-    toggleMusic(!m) // on = reproduciendo = !muted
+    musicSetMuted(m)
   }
 
   return (

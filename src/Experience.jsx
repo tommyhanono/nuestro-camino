@@ -4,7 +4,7 @@ import { useTexture, Sparkles, Stars, Float, RoundedBox } from '@react-three/dre
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import gsap from 'gsap'
-import { STOPS, SPACING, SIDE_X, PHOTO_Y, readTime } from './data.js'
+import { STOPS, SPACING, SIDE_X, PHOTO_Y, readTime, SONG_DURATION } from './data.js'
 
 const BASE = import.meta.env.BASE_URL
 const urls = STOPS.map((s) => `${BASE}assets/${s.img}.jpg`)
@@ -131,12 +131,21 @@ const Experience = forwardRef(function Experience(
   useEffect(() => {
     if (!started || tlRef.current) return
     startedRef.current = true
+    const OUTRO_DUR = 6
+    // Escalar las duraciones para que el viaje (paradas + salida) dure lo que la
+    // canción → el ritmo de la animación va con "New Recording 14" (212.7s).
+    const travelBase = STOPS.map((_, i) => (i === 0 ? 3.6 : 3.4))
+    const readBase = STOPS.map((s) => readTime(s.msg))
+    const baseTotal =
+      travelBase.reduce((a, b) => a + b, 0) + readBase.reduce((a, b) => a + b, 0)
+    const scale = Math.max(0.5, (SONG_DURATION - OUTRO_DUR) / baseTotal)
+
     const tl = gsap.timeline({
       onComplete: () => {
         // final tranquilo: alejarse suave para ver todo el camino
         gsap.to(cam.current, {
           ...OVERVIEW,
-          duration: 7,
+          duration: OUTRO_DUR,
           ease: 'power1.inOut',
           onComplete: () => {
             outroDone.current = true
@@ -146,14 +155,14 @@ const Experience = forwardRef(function Experience(
       },
     })
     STOPS.forEach((s, i) => {
+      const k = camKey(i)
       tl.to(cam.current, {
-        px: camKey(i).px, py: camKey(i).py, pz: camKey(i).pz,
-        tx: camKey(i).tx, ty: camKey(i).ty, tz: camKey(i).tz,
-        duration: i === 0 ? 3.4 : 3.7,
+        px: k.px, py: k.py, pz: k.pz, tx: k.tx, ty: k.ty, tz: k.tz,
+        duration: travelBase[i] * scale,
         ease: 'power2.inOut',
         onStart: () => onActive && onActive(i),
       })
-      tl.to({}, { duration: readTime(s.msg) }) // pausa para leer con calma
+      tl.to({}, { duration: readBase[i] * scale }) // pausa para leer con calma
     })
     tlRef.current = tl
     if (import.meta.env.DEV) window.__tl = tl // sólo para verificación en dev

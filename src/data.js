@@ -26,7 +26,12 @@ export const SPACING = 15
 export const SIDE_X = 5.6
 export const PHOTO_Y = 2.5
 
-// Tiempo de lectura por parada (segundos que el mensaje queda fijo, además del viaje)
+// Tiempo de lectura por parada (peso relativo según el largo del mensaje)
 export function readTime(msg) {
   return Math.min(9.5, Math.max(5, msg.length / 15 + 3))
 }
+
+// Duración de la canción "New Recording 14" (segundos). El viaje se escala a esto
+// para que el ritmo de la animación vaya con la canción.
+export const SONG_DURATION = 212.7
+

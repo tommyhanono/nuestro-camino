@@ -1,74 +1,54 @@
-// Música de fondo suave, generada con Web Audio (sin archivos, sin licencias).
-// Un pad cálido y soñador. Apagado por defecto; se enciende con un gesto del usuario.
-let ctx = null
-let master = null
-let nodes = []
-let started = false
+// Música de fondo: la canción "New Recording 14" (elegida por Tommy).
+// Reproduce en loop, con fade suave. Se controla en sincronía con el viaje.
+const SRC = `${import.meta.env.BASE_URL}assets/song.mp3`
+const SRC_FALLBACK = `${import.meta.env.BASE_URL}assets/song.m4a`
+const VOL = 0.85
 
-// Acorde suave (Re mayor add9): D2, A2, D3, F#3, E4
-const CHORD = [73.42, 110.0, 146.83, 185.0, 329.63]
+let el = null
+let fadeTimer = null
 
 function ensure() {
-  if (ctx) return
-  const AC = window.AudioContext || window.webkitAudioContext
-  ctx = new AC()
-  master = ctx.createGain()
-  master.gain.value = 0.0001
-  master.connect(ctx.destination)
-
-  // Filtro cálido general
-  const lp = ctx.createBiquadFilter()
-  lp.type = 'lowpass'
-  lp.frequency.value = 900
-  lp.Q.value = 0.4
-  lp.connect(master)
-
-  // LFO lento que "respira" sobre el filtro
-  const lfo = ctx.createOscillator()
-  const lfoGain = ctx.createGain()
-  lfo.frequency.value = 0.06
-  lfoGain.gain.value = 260
-  lfo.connect(lfoGain)
-  lfoGain.connect(lp.frequency)
-  lfo.start()
-  nodes.push(lfo)
-
-  CHORD.forEach((f, i) => {
-    const osc = ctx.createOscillator()
-    osc.type = i === 0 ? 'sine' : 'triangle'
-    osc.frequency.value = f
-    osc.detune.value = (i - 2) * 4 // leve desafinación para calidez
-
-    const g = ctx.createGain()
-    g.gain.value = i === 0 ? 0.5 : 0.28 / (i + 1)
-
-    // vibrato de amplitud muy sutil, distinto por voz
-    const amp = ctx.createOscillator()
-    const ampGain = ctx.createGain()
-    amp.frequency.value = 0.05 + i * 0.017
-    ampGain.gain.value = g.gain.value * 0.35
-    amp.connect(ampGain)
-    ampGain.connect(g.gain)
-    amp.start()
-
-    osc.connect(g)
-    g.connect(lp)
-    osc.start()
-    nodes.push(osc, amp)
-  })
+  if (el) return el
+  el = new Audio()
+  // elige el formato que el navegador pueda reproducir
+  el.src = el.canPlayType('audio/mpeg') ? SRC : SRC_FALLBACK
+  el.loop = true
+  el.preload = 'auto'
+  el.volume = 0
+  return el
 }
 
-export function toggleMusic(on) {
+function fadeTo(target, ms = 800) {
+  const a = ensure()
+  if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null }
+  const start = a.volume
+  const t0 = performance.now()
+  fadeTimer = setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / ms)
+    a.volume = start + (target - start) * k
+    if (k >= 1) { clearInterval(fadeTimer); fadeTimer = null }
+  }, 40)
+}
+
+// Empezar/continuar la reproducción (debe llamarse desde un gesto del usuario)
+export function musicPlay() {
+  const a = ensure()
+  const p = a.play()
+  if (p && p.catch) p.catch(() => {})
+}
+
+// Pausar (congela la posición para mantener la sincronía con el viaje)
+export function musicPause() {
+  if (el) el.pause()
+}
+
+// Silenciar / activar sin cortar (mantiene la posición sincronizada)
+export function musicSetMuted(muted) {
   ensure()
-  if (ctx.state === 'suspended') ctx.resume()
-  started = true
-  const now = ctx.currentTime
-  master.gain.cancelScheduledValues(now)
-  master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now)
-  // fade in/out suave de 1.6s
-  master.gain.exponentialRampToValueAtTime(on ? 0.14 : 0.0001, now + 1.6)
+  fadeTo(muted ? 0 : VOL, 700)
 }
 
-export function isAudioStarted() {
-  return started
+// Volver al principio de la canción
+export function musicRestart() {
+  if (el) { try { el.currentTime = 0 } catch (e) {} }
 }
